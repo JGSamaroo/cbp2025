@@ -173,7 +173,7 @@ class gentry            // TAGE global table entry
 {
     public:
         int8_t ctr;
-        uint tag;
+        unsigned int tag;
         int8_t u;
 
         gentry ()
@@ -459,7 +459,7 @@ class CBP2016_TAGE_SC_L
     public:
         //state set by predict
         int GI[NHIST + 1];      // indexes to the different tables are computed only once  
-        uint GTAG[NHIST + 1];   // tags for the different tables are computed only once  
+        unsigned int GTAG[NHIST + 1];   // tags for the different tables are computed only once  
         int BI;             // index of the bimodal table
 
         //

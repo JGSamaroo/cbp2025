@@ -21,17 +21,60 @@
 #include "my_cond_branch_predictor.h"
 #include <cassert>
 
-//
+#define USE_TAGE 0 //change to 1=Tage and 0=Bimodal 
+
+
+
 // beginCondDirPredictor()
 // 
 // This function is called by the simulator before the start of simulation.
 // It can be used for arbitrary initialization steps for the contestant's code.
 //
+
+// Misprediction tracking for all predictors
+//
+struct PredictorStats {
+    uint64_t correct = 0;
+    uint64_t wrong = 0;
+
+    //uint64_t num_branches = 0;
+    //uint64_t num_mispredictions = 0;
+
+    void update(bool resolve, bool pred) {
+        if(resolve == pred) correct++;
+        else wrong++;
+
+       //num_branches++;
+        //if(resolve != pred) num_mispredictions++;
+    }
+
+    double mispredict_rate() const {
+        uint64_t total = correct + wrong;
+        return total ? (double)wrong / total : 0.0;
+    }
+};
+
+static PredictorStats stats_tage;
+static PredictorStats stats_sample;
+
+
+
 void beginCondDirPredictor()
 {
     // setup sample_predictor
-    cbp2016_tage_sc_l.setup();
-    cond_predictor_impl.setup();
+    #if USE_TAGE 
+        cbp2016_tage_sc_l.setup();
+        std::cout << "TAGE mode\n";
+    #else
+        cond_predictor_impl.setup();
+        std::cout << "BIMODAL mode\n";
+    #endif
+    
+    //bimodal_impl.setup();
+    //gshare_impl.setup();
+    //tournament_impl.setup();
+    //always_taken_impl.setup();
+    //always_not_taken_impl.setup();
 }
 
 //
@@ -54,8 +97,22 @@ void notify_instr_fetch(uint64_t seq_no, uint8_t piece, uint64_t pc, const uint6
 bool get_cond_dir_prediction(uint64_t seq_no, uint8_t piece, uint64_t pc, const uint64_t pred_cycle)
 {
     const bool tage_sc_l_pred =  cbp2016_tage_sc_l.predict(seq_no, piece, pc);
-    const bool my_prediction = cond_predictor_impl.predict(seq_no, piece, pc, tage_sc_l_pred);
-    return my_prediction;
+    const bool bimodal_pred = cond_predictor_impl.predict(seq_no, piece, pc);
+    
+    
+    //const bool pred_gshare = gshare_impl.predict(seq_no, piece, pc, tage_sc_l_pred);
+    //const bool pred_tournament = tournament_impl.predict(seq_no, piece, pc, tage_sc_l_pred);
+    //const bool pred_taken = always_taken_impl.predict(seq_no, piece, pc, tage_sc_l_pred);
+    //const bool pred_not_taken = always_not_taken_impl.predict(seq_no, piece, pc, tage_sc_l_pred);
+    
+    //return tage_sc_l_pred;
+    #if USE_TAGE
+        return tage_sc_l_pred;
+    #else  
+        return bimodal_pred;
+    
+    #endif
+
 }
 
 //
@@ -95,13 +152,23 @@ void spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, InstClass inst_cla
     }
 
     if(inst_class == InstClass::condBranchInstClass)
-    {
-        cbp2016_tage_sc_l.history_update(seq_no, piece, pc, br_type, pred_dir, resolve_dir, next_pc);
-        cond_predictor_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
-    }
+    {   
+        #if USE_TAGE
+            cbp2016_tage_sc_l.history_update(seq_no, piece, pc, br_type, pred_dir, resolve_dir, next_pc);
+        
+        #else 
+            cond_predictor_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+        #endif
+        //bimodal_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+        //gshare_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+        //tournament_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+        //always_taken_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+        //always_not_taken_impl.history_update(seq_no, piece, pc, resolve_dir, next_pc);
+    } 
+
     else
     {
-        cbp2016_tage_sc_l.TrackOtherInst(pc, br_type, pred_dir, resolve_dir, next_pc);
+        //cbp2016_tage_sc_l.TrackOtherInst(pc, br_type, pred_dir, resolve_dir, next_pc);
     }
 
 }
@@ -115,7 +182,10 @@ void spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, InstClass inst_cla
 // For the sample predictor implementation, we do not leverage decode information
 void notify_instr_decode(uint64_t seq_no, uint8_t piece, uint64_t pc, const DecodeInfo& _decode_info, const uint64_t decode_cycle)
 {
+    //added here 
+
 }
+
 
 //
 // notify_agen_complete(uint64_t seq_no, uint8_t piece, uint64_t pc, const DecodeInfo& _decode_info, const uint64_t mem_va, const uint64_t mem_sz, const uint64_t agen_cycle)
@@ -125,6 +195,7 @@ void notify_instr_decode(uint64_t seq_no, uint8_t piece, uint64_t pc, const Deco
 //
 void notify_agen_complete(uint64_t seq_no, uint8_t piece, uint64_t pc, const DecodeInfo& _decode_info, const uint64_t mem_va, const uint64_t mem_sz, const uint64_t agen_cycle)
 {
+    //added here 
 }
 
 //
@@ -137,6 +208,7 @@ void notify_agen_complete(uint64_t seq_no, uint8_t piece, uint64_t pc, const Dec
 // At the moment, we do not consider updating any other structure, but the contestants are allowed to  update any other predictor state.
 void notify_instr_execute_resolve(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool pred_dir, const ExecuteInfo& _exec_info, const uint64_t execute_cycle)
 {
+    (void) execute_cycle;
     const bool is_branch = is_br(_exec_info.dec_info.insn_class);
     if(is_branch)
     {
@@ -144,8 +216,16 @@ void notify_instr_execute_resolve(uint64_t seq_no, uint8_t piece, uint64_t pc, c
         {
             const bool _resolve_dir = _exec_info.taken.value();
             const uint64_t _next_pc = _exec_info.next_pc;
-            cbp2016_tage_sc_l.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
-            cond_predictor_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            #if USE_TAGE
+                cbp2016_tage_sc_l.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            #else 
+                cond_predictor_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            #endif
+            //bimodal_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            //gshare_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            //tournament_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            //always_taken_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
+            //always_not_taken_impl.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
         }
         else
         {
@@ -173,6 +253,17 @@ void notify_instr_commit(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool
 //
 void endCondDirPredictor ()
 {
-    cbp2016_tage_sc_l.terminate();
-    cond_predictor_impl.terminate();
+    #if USE_TAGE
+        cbp2016_tage_sc_l.terminate();
+    #else  
+        cond_predictor_impl.terminate();
+    #endif
+
+    //bimodal_impl.terminate();
+    //gshare_impl.terminate();
+    //tournament_impl.terminate();
+    //always_taken_impl.terminate();
+    //always_not_taken_impl.terminate();
+
+   
 }

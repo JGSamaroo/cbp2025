@@ -1,0 +1,17 @@
+# Compiled files
+*.o
+*.exe
+*.out
+*.a
+
+# Logs / outputs
+*.txt
+
+# VS Code
+.vscode/
+
+# Large traces
+cbp_traces/
+
+# Random file
+2

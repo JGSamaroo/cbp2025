@@ -34,7 +34,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "parameters.h"
 
 #include "parameters.h"
-
+#include <cstdlib> 
+#include <ctime>
 bp_t::bp_t()
 {
    if(!PERFECT_INDIRECT_PRED)
@@ -93,7 +94,14 @@ bool bp_t::predict(uint64_t seq_no, uint8_t piece, InstClass inst_class, uint64_
       
       if(MISP_REDUCTION_PERC != 0 && misp)
       {
-          const bool flip_mispred = (MISP_REDUCTION_PERC == 100) ? true : (static_cast<uint64_t>(rand_r(&mispred_correction_seed)%100) < MISP_REDUCTION_PERC);
+          // const bool flip_mispred = (MISP_REDUCTION_PERC == 100) ? true : (static_cast<uint64_t>(rand_r(&mispred_correction_seed)%100) < MISP_REDUCTION_PERC);
+          static unsigned int mispred_correction_seed_local = static_cast<unsigned int>(time(nullptr)); 
+
+          const bool flip_mispred = (MISP_REDUCTION_PERC == 100) ? true : (static_cast<uint64_t>(rand() % 100) < MISP_REDUCTION_PERC);
+
+          
+          
+          
           if(flip_mispred)
           {
               misp = false;

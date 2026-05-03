@@ -1,83 +1,82 @@
-#ifndef _PREDICTOR_H_
-#define _PREDICTOR_H_
+
+
+//#Jennys Code 
+//use the sample predictor given for my branch types 
+
+//add header for all predictors 
+#ifndef MY_COND_BRANCH_PREDICTOR_H
+#define MY_COND_BRANCH_PREDICTOR_H
 
 #include <stdlib.h>
+#include <cstdint>
+#include <vector>
+//#include <unordered_map>
+#include <cassert>
+#include <algorithm>
 
-struct SampleHist
-{
-      uint64_t ghist;
-      bool tage_pred;
-      //
-      SampleHist()
-      {
-          ghist = 0;
-      }
+//#ifndef _BIMODAL_PREDICTOR_H_
+//#define _BIMODAL_PREDICTOR_H_
+
+
+//struct BimodalHist {
+//    uint64_t ghist = 0;
+    
+//};
+
+class BimodalPredictor {
+    static constexpr int TABLE_SIZE = 4096;
+
+    std::vector<int8_t> table;
+    //BimodalHist active_hist;
+    //std::unordered_map<uint64_t, BimodalHist> pred_time_histories;
+
+public:
+    uint64_t num_branches = 0;
+    uint64_t num_mispred = 0;
+
+    BimodalPredictor() {
+        table.assign(TABLE_SIZE, 2);
+    }
+
+    void setup() {
+        std::fill(table.begin(), table.end(), 2);
+        num_branches = 0;
+        num_mispred = 0;
+        //active_hist = BimodalHist();
+        //pred_time_histories.clear();
+    }
+
+    void terminate() {}
+
+    uint64_t get_unique_inst_id(uint64_t seq_no, uint8_t piece) const {
+        return (seq_no << 4) | (piece & 0xF);
+    }
+
+    bool predict(uint64_t seq_no, uint8_t piece, uint64_t PC) {
+        //pred_time_histories.emplace(get_unique_inst_id(seq_no,piece), active_hist);
+        uint32_t idx = PC & (TABLE_SIZE - 1);
+        return table[idx] >= 2;
+    }
+
+    void history_update(uint64_t, uint8_t, uint64_t, bool, uint64_t) {
+        //active_hist.ghist = (active_hist.ghist << 1) | (taken ? 1 : 0);
+    }
+
+    void update(uint64_t seq_no, uint8_t piece,
+                uint64_t PC, bool resolveDir, bool predDir, uint64_t) {
+        num_branches++;
+        if (resolveDir != predDir) num_mispred++;
+
+        uint32_t idx = PC & (TABLE_SIZE - 1);
+        if (resolveDir && table[idx] < 3) table[idx]++;
+        else if (!resolveDir && table[idx] > 0) table[idx]--;
+
+        //pred_time_histories.erase(get_unique_inst_id(seq_no,piece));
+    }
+
+    //void update(uint64_t, bool, bool, uint64_t, const BimodalHist&) {}
 };
 
+static BimodalPredictor cond_predictor_impl;
 
-class SampleCondPredictor
-{
-        SampleHist active_hist;
-        std::unordered_map<uint64_t/*key*/, SampleHist/*val*/> pred_time_histories;
-    public:
-
-        SampleCondPredictor (void)
-        {
-        }
-
-        void setup()
-        {
-        }
-
-        void terminate()
-        {
-        }
-
-        // sample function to get unique instruction id
-        uint64_t get_unique_inst_id(uint64_t seq_no, uint8_t piece) const
-        {
-            assert(piece < 16);
-            return (seq_no << 4) | (piece & 0x000F);
-        }
-
-        bool predict (uint64_t seq_no, uint8_t piece, uint64_t PC, const bool tage_pred)
-        {
-            active_hist.tage_pred = tage_pred;
-            // checkpoint current hist
-            pred_time_histories.emplace(get_unique_inst_id(seq_no, piece), active_hist);
-            const bool pred_taken = predict_using_given_hist(seq_no, piece, PC, active_hist, true/*pred_time_predict*/);
-            return pred_taken;
-        }
-
-        bool predict_using_given_hist (uint64_t seq_no, uint8_t piece, uint64_t PC, const SampleHist& hist_to_use, const bool pred_time_predict)
-        {
-            return hist_to_use.tage_pred;
-        }
-
-        void history_update (uint64_t seq_no, uint8_t piece, uint64_t PC, bool taken, uint64_t nextPC)
-        {
-            active_hist.ghist = active_hist.ghist << 1;
-            if(taken)
-            {
-                active_hist.ghist |= 1;
-            }
-        }
-
-        void update (uint64_t seq_no, uint8_t piece, uint64_t PC, bool resolveDir, bool predDir, uint64_t nextPC)
-        {
-            const auto pred_hist_key = get_unique_inst_id(seq_no, piece);
-            const auto& pred_time_history = pred_time_histories.at(pred_hist_key);
-            update(PC, resolveDir, predDir, nextPC, pred_time_history);
-            pred_time_histories.erase(pred_hist_key);
-        }
-
-        void update (uint64_t PC, bool resolveDir, bool pred_taken, uint64_t nextPC, const SampleHist& hist_to_use)
-        {
-        }
-};
-// =================
-// Predictor End
-// =================
-
-#endif
-static SampleCondPredictor cond_predictor_impl;
+#endif // MY_COND_BRANCH_PREDICTOR_H

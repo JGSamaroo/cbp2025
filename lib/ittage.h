@@ -43,6 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define BORNTICK 1024
 
 #define ALTWIDTH 5
+typedef unsigned int uint;
 
 // Fast  implementation of the ITTAGE predictor: probably not optimal, but not
 // that far
